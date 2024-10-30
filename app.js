@@ -96,17 +96,34 @@ const {userEmail} = req.body;
 });
 
 
-app.post("/get-attendance", async (req, res) => {
-  const { userEmail } = req.body;
 
-
+app.post('/get-attendance', async (req, res) => {
   try {
-    const attendanceData = await Attendance.find({ userEmail: userEmail }); // Fetch data from the database
-    return res.send({ status: 200, data: attendanceData });
+    const { userEmail } = req.body;
+    const attendance = await Attendance.findOne({ userEmail });
+
+    if (!attendance) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const result = attendance.timeLogs.map(log => ({
+      date: attendance.date,
+      timeIn: log.timeIn,
+      timeOut: log.timeOut,
+      timeInLocation: log.timeInLocation || '',
+      timeOutLocation: log.timeOutLocation || '', // Changed to match the schema
+      accountNameBranchManning: log.accountNameBranchManning || ''
+    }));
+
+    console.log('Sending attendance data:', result);
+    res.json({ success: true, data: result });
   } catch (error) {
-    return res.status(500).send({ error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
+
+
 
 app.get('/get-skus-by-status', async (req, res) => {
   const { branch, statusCategory, status } = req.query;
@@ -650,7 +667,7 @@ app.post("/test-index", async (req, res) => {
   }
 });
 
-app.post("/retrieve-parcel-data", async (req, res) => {
+app.post("/inventory-data", async (req, res) => {
 
   try {
     const parcelPerUser = await ParcelData.find();
