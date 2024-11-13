@@ -3,17 +3,13 @@ const mongoose = require("mongoose");
 const AttendanceSchema = new mongoose.Schema({
   userEmail: String,
   date: Date,
+  accountNameBranchManning: String,
   timeLogs: [
     {
       timeIn: Date,
       timeOut: Date,
       timeInLocation: String,
       timeOutLocation: String,
-      accountNameBranchManning: {
-        type: String,
-        unique: true,
-        sparse: true, // Ensures uniqueness without enforcing it if empty
-      }
     }
   ]
 }, {

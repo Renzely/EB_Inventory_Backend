@@ -36,7 +36,7 @@ const Attendance = mongoose.model("NewAttendance");
 
 //const Coordinator = mongoose.model("TowiCoordinator")
 
-//const RTV = mongoose.model("TowiReturnToVendor");
+const RTV = mongoose.model("NewReturnToVendor");
 
 // const Parcel = mongoose.model("Towiinventory");
 
@@ -100,25 +100,32 @@ const {userEmail} = req.body;
 app.post('/get-attendance', async (req, res) => {
   try {
     const { userEmail } = req.body;
-    const attendance = await Attendance.findOne({ userEmail });
+    console.log("Received request for userEmail:", userEmail);
 
-    if (!attendance) {
+    // Fetch all attendance records for the user, sorted by date in descending order
+    const attendanceRecords = await Attendance.find({ userEmail }).sort({ date: 1 });
+
+    if (!attendanceRecords.length) {
+      console.log("No attendance found for user:", userEmail);
       return res.json({ success: true, data: [] });
     }
 
-    const result = attendance.timeLogs.map(log => ({
+    // Format each attendance record to include all time logs for each specific date
+    const result = attendanceRecords.map(attendance => ({
       date: attendance.date,
-      timeIn: log.timeIn,
-      timeOut: log.timeOut,
-      timeInLocation: log.timeInLocation || '',
-      timeOutLocation: log.timeOutLocation || '', // Changed to match the schema
-      accountNameBranchManning: log.accountNameBranchManning || ''
+      accountNameBranchManning: attendance.accountNameBranchManning || '',
+      timeLogs: attendance.timeLogs.map(log => ({
+        timeIn: log.timeIn,
+        timeOut: log.timeOut,
+        timeInLocation: log.timeInLocation || 'No location provided',
+        timeOutLocation: log.timeOutLocation || 'No location provided'
+      }))
     }));
 
-    console.log('Sending attendance data:', result);
+    console.log('Sending full attendance history data:', JSON.stringify(result, null, 2));
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error(error);
+    console.error("Error in /get-attendance:", error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

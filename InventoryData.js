@@ -10,10 +10,8 @@ const ParcelDataSchema = new mongoose.Schema(
     period: String,
     month: String,
     week: String,
-    //category: String,
     skuDescription: String,
     skuCode: String,
-    //products: String,
     status: String,
     beginning: Number,
     delivery: Number,
@@ -22,7 +20,6 @@ const ParcelDataSchema = new mongoose.Schema(
     inventoryDayslevel: Number,
     noOfDaysOOS: Number,
     remarksOOS: String,
-    //reasonOOS: String,
   },
   {
     collection: "NewInventory",
