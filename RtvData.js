@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const RTVDetailSchema = new mongoose.Schema(
   {
+    inputId: String,
     userEmail: String,
     date: String,
     merchandiserName: String,
@@ -9,14 +10,16 @@ const RTVDetailSchema = new mongoose.Schema(
     category: String,
     contactNum: String,
     item: String,
+    amount: String,
     quantity: String,
-    driverName: String,
-    plateNumber: String,
-    pullOutReason: String,
+    total: String,
+    remarks: String,
+    reason: String,
+    expiryDate: String
   },
   {
-    collection: "TowiReturnToVendor",
+    collection: "NewReturnToVendor",
   }
 );
 
-mongoose.model("TowiReturnToVendor", RTVDetailSchema);
+mongoose.model("NewReturnToVendor", RTVDetailSchema);
