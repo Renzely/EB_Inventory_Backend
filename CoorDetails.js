@@ -1,12 +1,12 @@
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
 
-const CoorDetailsSchema = new mongoose.Schema({
-  coorEmailAdd: String,
-  merchandiserHandle: [{
-    MerchandiserEmail: String,
-  }]
-}, {
-  collection: "TowiCoordinator",
-});
+// const CoorDetailsSchema = new mongoose.Schema({
+//   coorEmailAdd: String,
+//   merchandiserHandle: [{
+//     MerchandiserEmail: String,
+//   }]
+// }, {
+//   collection: "TowiCoordinator",
+// });
 
-const CoorDetails = mongoose.model("TowiCoordinator", CoorDetailsSchema);
+// const CoorDetails = mongoose.model("TowiCoordinator", CoorDetailsSchema);

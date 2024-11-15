@@ -675,16 +675,22 @@ app.post("/test-index", async (req, res) => {
 });
 
 app.post("/inventory-data", async (req, res) => {
-
   try {
     const parcelPerUser = await ParcelData.find();
 
     console.log("Found parcels:", parcelPerUser);
+
+    // Ensure expiryFields are included
+    parcelPerUser.forEach((parcel) => {
+      console.log(parcel.expiryFields); // Log expiryFields for each parcel
+    });
+
     return res.status(200).json({ status: 200, data: parcelPerUser });
   } catch (error) {
     return res.send({ error: error });
   }
 });
+
 
 app.post("/filter-date", async (req, res) => {
 
