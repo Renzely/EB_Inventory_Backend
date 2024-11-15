@@ -20,6 +20,12 @@ const ParcelDataSchema = new mongoose.Schema(
     inventoryDayslevel: Number,
     noOfDaysOOS: Number,
     remarksOOS: String,
+    expiryFields: [
+      {
+        type: Map,  // Define each item in the array as a Map with keys and values
+        of: mongoose.Schema.Types.Mixed,  // Can store mixed types (strings, numbers, etc.)
+      }
+    ],
   },
   {
     collection: "NewInventory",
