@@ -44,7 +44,7 @@ const RTV = mongoose.model("NewReturnToVendor");
 
 // const ParcelInput = mongoose.model("parcelInput");
 
-const ParcelData = mongoose.model("NewInventory");
+const InventoryData = mongoose.model("NewInventory");
 
 const JWT_SECRET = "asdfghjklzxcvbnmqwertyuiop";
 
@@ -64,7 +64,10 @@ app.get("/", (req, res) => {
 app.post("/get-users-by-branch", async (req, res) => {
   const { branch } = req.body;
   try {
-    const users = await ParcelData.find({ accountNameBranchManning: branch });
+    const users = await InventoryData.find({
+      accountNameBranchManning: { $in: [branch] }
+    });
+    
     return res.status(200).json({ status: 200, users });
   } catch (error) {
     return res.status(500).json({ error: "Error fetching users" });
@@ -110,19 +113,29 @@ app.post('/get-attendance', async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    // Format each attendance record to include all time logs for each specific date
+    // Log the raw data to inspect the time coordinates
+    console.log("Fetched Attendance Records:", JSON.stringify(attendanceRecords, null, 2));
+
     const result = attendanceRecords.map(attendance => ({
       date: attendance.date,
       accountNameBranchManning: attendance.accountNameBranchManning || '',
-      timeLogs: attendance.timeLogs.map(log => ({
-        timeIn: log.timeIn,
-        timeOut: log.timeOut,
-        timeInLocation: log.timeInLocation || 'No location provided',
-        timeOutLocation: log.timeOutLocation || 'No location provided'
-      }))
+      timeLogs: attendance.timeLogs.map(log => {
+        // Log each time log coordinates
+        console.log('Time In Coordinates:', log.time_in_coordinates);
+        console.log('Time Out Coordinates:', log.time_out_coordinates);
+        
+        return {
+          timeIn: log.timeIn,
+          timeOut: log.timeOut,
+          timeInLocation: log.timeInLocation || 'No location provided',
+          timeOutLocation: log.timeOutLocation || 'No location provided',
+          timeInCoordinates: log.time_in_coordinates || { latitude: 0, longitude: 0 },
+          timeOutCoordinates: log.time_out_coordinates || { latitude: 0, longitude: 0 },
+        };
+      })
     }));
 
-    console.log('Sending full attendance history data:', JSON.stringify(result, null, 2));
+    console.log("Formatted Attendance Data:", JSON.stringify(result, null, 2));
     res.json({ success: true, data: result });
   } catch (error) {
     console.error("Error in /get-attendance:", error);
@@ -131,241 +144,240 @@ app.post('/get-attendance', async (req, res) => {
 });
 
 
+// app.get('/get-skus-by-status', async (req, res) => {
+//   const { branch, statusCategory, status } = req.query;
 
-app.get('/get-skus-by-status', async (req, res) => {
-  const { branch, statusCategory, status } = req.query;
+//   if (!branch || !statusCategory || !status) {
+//     return res.status(400).json({ message: 'Branch, Category, and Status are required' });
+//   }
 
-  if (!branch || !statusCategory || !status) {
-    return res.status(400).json({ message: 'Branch, Category, and Status are required' });
-  }
+//   try {
+//     const branchData = await BranchSKU.findOne({
+//       accountNameBranchManning: branch,
+//       category: statusCategory
+//     });
 
-  try {
-    const branchData = await BranchSKU.findOne({
-      accountNameBranchManning: branch,
-      category: statusCategory
-    });
+//     if (!branchData) {
+//       return res.status(404).json({ message: 'Branch or Category not found' });
+//     }
 
-    if (!branchData) {
-      return res.status(404).json({ message: 'Branch or Category not found' });
-    }
+//     // Filter SKUs where `enabled` is false and status matches the provided status
+//     const skus = branchData.SKUs.filter(sku => 
+//       !sku.enabled && sku.status === status
+//     );
 
-    // Filter SKUs where `enabled` is false and status matches the provided status
-    const skus = branchData.SKUs.filter(sku => 
-      !sku.enabled && sku.status === status
-    );
-
-    res.status(200).json(skus);
-  } catch (error) {
-    console.error('Error fetching SKUs:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-app.get('/get-skus', async (req, res) => {
-  const { accountNameBranchManning } = req.query;
-
-  if (!accountNameBranchManning) {
-    return res.status(400).json({ message: 'Branch name is required' });
-  }
-
-  try {
-    // Find the SKUs associated with the given branch name
-    const skus = await BranchSKU.find({ accountNameBranchManning });
-
-    if (!skus || skus.length === 0) {
-      return res.status(404).json({ message: 'No SKUs found for this branch' });
-    }
-
-    // Group SKUs by category and filter out disabled SKUs
-    const skusByCategory = skus.reduce((acc, sku) => {
-      if (!acc[sku.category]) {
-        acc[sku.category] = [];
-      }
-      const enabledSkus = sku.SKUs.filter(skuItem => skuItem.enabled); // Filter enabled SKUs
-      if (enabledSkus.length > 0) {
-        acc[sku.category].push(enabledSkus);
-      }
-      return acc;
-    }, {});
-
-    res.status(200).json(skusByCategory);
-  } catch (error) {
-    console.error('Error fetching SKUs:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+//     res.status(200).json(skus);
+//   } catch (error) {
+//     console.error('Error fetching SKUs:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
 
 
+// app.get('/get-skus', async (req, res) => {
+//   const { accountNameBranchManning } = req.query;
 
-app.post('/disable-sku', async (req, res) => {
-  const { branch, category, skuDescription, enabled, status } = req.body;
+//   if (!accountNameBranchManning) {
+//     return res.status(400).json({ message: 'Branch name is required' });
+//   }
 
-  try {
-    // Find the branch SKU document
-    const branchSKU = await BranchSKU.findOne({
-      accountNameBranchManning: branch,
-      category: category,
-    });
+//   try {
+//     // Find the SKUs associated with the given branch name
+//     const skus = await BranchSKU.find({ accountNameBranchManning });
 
-    if (!branchSKU) {
-      return res.status(404).json({ message: 'Branch and category not found.' });
-    }
+//     if (!skus || skus.length === 0) {
+//       return res.status(404).json({ message: 'No SKUs found for this branch' });
+//     }
 
-    // Find the SKU and update its enabled status
-    const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
-    if (!sku) {
-      return res.status(404).json({ message: 'SKU not found in this category.' });
-    }
+//     // Group SKUs by category and filter out disabled SKUs
+//     const skusByCategory = skus.reduce((acc, sku) => {
+//       if (!acc[sku.category]) {
+//         acc[sku.category] = [];
+//       }
+//       const enabledSkus = sku.SKUs.filter(skuItem => skuItem.enabled); // Filter enabled SKUs
+//       if (enabledSkus.length > 0) {
+//         acc[sku.category].push(enabledSkus);
+//       }
+//       return acc;
+//     }, {});
 
-    sku.status = status; // Add or update the status field
-    sku.enabled = enabled;
-
-    // Save the updated document
-    await branchSKU.save();
-
-    res.status(200).json({ message: 'SKU status updated successfully.' });
-  } catch (error) {
-    console.error('Error updating SKU status:', error);
-    res.status(500).json({ message: 'An error occurred while updating SKU status.' });
-  }
-});
-
-app.post('/enable-sku', async (req, res) => {
-  const { branch, category, skuDescription, enabled, status } = req.body;
-
-  try {
-    // Find the branch SKU document
-    const branchSKU = await BranchSKU.findOne({
-      accountNameBranchManning: branch,
-      category: category,
-    });
-
-    if (!branchSKU) {
-      return res.status(404).json({ message: 'Branch and category not found.' });
-    }
-
-    // Find the SKU and update its enabled status and status field
-    const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
-    if (!sku) {
-      return res.status(404).json({ message: 'SKU not found in this category.' });
-    }
-
-    // Ensure the SKU was previously disabled and its status was either "Not Carried" or "Delisted"
-    if (!sku.enabled && ['Not Carried', 'Delisted'].includes(sku.status)) {
-      sku.status = status; // Update the status field
-      sku.enabled = enabled; // Enable the SKU
-    } else {
-      return res.status(400).json({ message: 'SKU is already enabled or does not meet the criteria for enabling.' });
-    }
-
-    // Save the updated document
-    await branchSKU.save();
-
-    res.status(200).json({ message: 'SKU status updated successfully.' });
-  } catch (error) {
-    console.error('Error updating SKU status:', error);
-    res.status(500).json({ message: 'An error occurred while updating SKU status.' });
-  }
-});
-
-
-app.post('/delisted-sku', async (req, res) => {
-  const { branch, category, skuDescription, enabled, status } = req.body;
-
-  try {
-    // Find the branch SKU document
-    const branchSKU = await BranchSKU.findOne({
-      accountNameBranchManning: branch,
-      category: category,
-    });
-
-    if (!branchSKU) {
-      return res.status(404).json({ message: 'Branch and category not found.' });
-    }
-
-    // Find the SKU and update its status
-    const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
-    if (!sku) {
-      return res.status(404).json({ message: 'SKU not found in this category.' });
-    }
-
-    sku.enabled = enabled;
-    sku.status = status; // Add or update the status field
-
-    // Save the updated document
-    await branchSKU.save();
-
-    res.status(200).json({ message: 'SKU status updated to Delisted successfully.' });
-  } catch (error) {
-    console.error('Error updating SKU status:', error);
-    res.status(500).json({ message: 'An error occurred while updating SKU status.' });
-  }
-});
-
-
-app.post('/update-sku-status', async (req, res) => {
-  const { branch, category, status, skuDescription } = req.body;
-
-  try {
-    // Find the specific branch SKU entry based on the branch and category
-    const branchSKU = await BranchSKU.findOne({
-      accountNameBranchManning: branch,
-      category: category,
-    });
-
-    // Check if the branch SKU document exists
-    if (!branchSKU) {
-      return res.status(404).json({ message: 'Branch and category not found.' });
-    }
-
-    // Find the specific SKU within the found branch SKU document
-    const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
-    if (!sku) {
-      return res.status(404).json({ message: 'SKU not found in this category.' });
-    }
-
-    // Update the SKU status
-    sku.status = status;
-    sku.enabled = status === 'Not Carried' || status === 'Delisted' ? false : true; // Update SKU enabled state based on status
-
-    // Save the updated branch SKU document
-    await branchSKU.save();
-
-    res.status(200).json({ message: 'SKU status updated successfully.' });
-  } catch (error) {
-    console.error('Error updating SKU status:', error);
-    res.status(500).json({ message: 'An error occurred while updating SKU status.' });
-  }
-});
+//     res.status(200).json(skusByCategory);
+//   } catch (error) {
+//     console.error('Error fetching SKUs:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// });
 
 
 
-app.post('/save-branch-sku', async (req, res) => {
-  try {
-    const { accountNameBranchManning, category, skus } = req.body;
+// app.post('/disable-sku', async (req, res) => {
+//   const { branch, category, skuDescription, enabled, status } = req.body;
 
-    console.log('Received data:', { accountNameBranchManning, category, skus });
+//   try {
+//     // Find the branch SKU document
+//     const branchSKU = await BranchSKU.findOne({
+//       accountNameBranchManning: branch,
+//       category: category,
+//     });
 
-    if (!accountNameBranchManning || !category || !skus || !Array.isArray(skus)) {
-      return res.status(400).json({ error: 'Invalid request data' });
-    }
+//     if (!branchSKU) {
+//       return res.status(404).json({ message: 'Branch and category not found.' });
+//     }
 
-    // Upsert operation: If a document with the same branch and category exists, update it. Otherwise, create a new one.
-    const result = await BranchSKU.updateOne(
-      { accountNameBranchManning, category }, // Filter condition
-      { $addToSet: { SKUs: { $each: skus } } }, // Add SKUs to the array, avoiding duplicates
-      { upsert: true } // Create a new document if no matching document is found
-    );
+//     // Find the SKU and update its enabled status
+//     const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
+//     if (!sku) {
+//       return res.status(404).json({ message: 'SKU not found in this category.' });
+//     }
 
-    console.log('Update result:', result);
+//     sku.status = status; // Add or update the status field
+//     sku.enabled = enabled;
 
-    res.status(201).json({ message: 'BranchSKUs saved successfully', data: result });
-  } catch (error) {
-    console.error('Error saving BranchSKUs:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+//     // Save the updated document
+//     await branchSKU.save();
+
+//     res.status(200).json({ message: 'SKU status updated successfully.' });
+//   } catch (error) {
+//     console.error('Error updating SKU status:', error);
+//     res.status(500).json({ message: 'An error occurred while updating SKU status.' });
+//   }
+// });
+
+// app.post('/enable-sku', async (req, res) => {
+//   const { branch, category, skuDescription, enabled, status } = req.body;
+
+//   try {
+//     // Find the branch SKU document
+//     const branchSKU = await BranchSKU.findOne({
+//       accountNameBranchManning: branch,
+//       category: category,
+//     });
+
+//     if (!branchSKU) {
+//       return res.status(404).json({ message: 'Branch and category not found.' });
+//     }
+
+//     // Find the SKU and update its enabled status and status field
+//     const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
+//     if (!sku) {
+//       return res.status(404).json({ message: 'SKU not found in this category.' });
+//     }
+
+//     // Ensure the SKU was previously disabled and its status was either "Not Carried" or "Delisted"
+//     if (!sku.enabled && ['Not Carried', 'Delisted'].includes(sku.status)) {
+//       sku.status = status; // Update the status field
+//       sku.enabled = enabled; // Enable the SKU
+//     } else {
+//       return res.status(400).json({ message: 'SKU is already enabled or does not meet the criteria for enabling.' });
+//     }
+
+//     // Save the updated document
+//     await branchSKU.save();
+
+//     res.status(200).json({ message: 'SKU status updated successfully.' });
+//   } catch (error) {
+//     console.error('Error updating SKU status:', error);
+//     res.status(500).json({ message: 'An error occurred while updating SKU status.' });
+//   }
+// });
+
+
+// app.post('/delisted-sku', async (req, res) => {
+//   const { branch, category, skuDescription, enabled, status } = req.body;
+
+//   try {
+//     // Find the branch SKU document
+//     const branchSKU = await BranchSKU.findOne({
+//       accountNameBranchManning: branch,
+//       category: category,
+//     });
+
+//     if (!branchSKU) {
+//       return res.status(404).json({ message: 'Branch and category not found.' });
+//     }
+
+//     // Find the SKU and update its status
+//     const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
+//     if (!sku) {
+//       return res.status(404).json({ message: 'SKU not found in this category.' });
+//     }
+
+//     sku.enabled = enabled;
+//     sku.status = status; // Add or update the status field
+
+//     // Save the updated document
+//     await branchSKU.save();
+
+//     res.status(200).json({ message: 'SKU status updated to Delisted successfully.' });
+//   } catch (error) {
+//     console.error('Error updating SKU status:', error);
+//     res.status(500).json({ message: 'An error occurred while updating SKU status.' });
+//   }
+// });
+
+
+// app.post('/update-sku-status', async (req, res) => {
+//   const { branch, category, status, skuDescription } = req.body;
+
+//   try {
+//     // Find the specific branch SKU entry based on the branch and category
+//     const branchSKU = await BranchSKU.findOne({
+//       accountNameBranchManning: branch,
+//       category: category,
+//     });
+
+//     // Check if the branch SKU document exists
+//     if (!branchSKU) {
+//       return res.status(404).json({ message: 'Branch and category not found.' });
+//     }
+
+//     // Find the specific SKU within the found branch SKU document
+//     const sku = branchSKU.SKUs.find(s => s.SKUDescription === skuDescription);
+//     if (!sku) {
+//       return res.status(404).json({ message: 'SKU not found in this category.' });
+//     }
+
+//     // Update the SKU status
+//     sku.status = status;
+//     sku.enabled = status === 'Not Carried' || status === 'Delisted' ? false : true; // Update SKU enabled state based on status
+
+//     // Save the updated branch SKU document
+//     await branchSKU.save();
+
+//     res.status(200).json({ message: 'SKU status updated successfully.' });
+//   } catch (error) {
+//     console.error('Error updating SKU status:', error);
+//     res.status(500).json({ message: 'An error occurred while updating SKU status.' });
+//   }
+// });
+
+
+
+// app.post('/save-branch-sku', async (req, res) => {
+//   try {
+//     const { accountNameBranchManning, category, skus } = req.body;
+
+//     console.log('Received data:', { accountNameBranchManning, category, skus });
+
+//     if (!accountNameBranchManning || !category || !skus || !Array.isArray(skus)) {
+//       return res.status(400).json({ error: 'Invalid request data' });
+//     }
+
+//     // Upsert operation: If a document with the same branch and category exists, update it. Otherwise, create a new one.
+//     const result = await BranchSKU.updateOne(
+//       { accountNameBranchManning, category }, // Filter condition
+//       { $addToSet: { SKUs: { $each: skus } } }, // Add SKUs to the array, avoiding duplicates
+//       { upsert: true } // Create a new document if no matching document is found
+//     );
+
+//     console.log('Update result:', result);
+
+//     res.status(201).json({ message: 'BranchSKUs saved successfully', data: result });
+//   } catch (error) {
+//     console.error('Error saving BranchSKUs:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
 
 
 
@@ -676,7 +688,7 @@ app.post("/test-index", async (req, res) => {
 
 app.post("/inventory-data", async (req, res) => {
   try {
-    const parcelPerUser = await ParcelData.find();
+    const parcelPerUser = await InventoryData.find();
 
     console.log("Found parcels:", parcelPerUser);
 
@@ -691,13 +703,253 @@ app.post("/inventory-data", async (req, res) => {
   }
 });
 
+app.post("/export-inventory-data", async (req, res) => {
+  const { start, end } = req.body;
+
+  try {
+      const data = await mongoose.model("NewInventory").aggregate([
+          // Match documents within the specified date range
+          {
+              $match: {
+                  $expr: {
+                      $and: [
+                          { $gte: [{ $toDate: "$date" }, new Date(start)] },
+                          { $lt: [{ $toDate: "$date" }, new Date(end)] }
+                      ]
+                  }
+              }
+          },
+          // Optionally join with another collection if needed
+          {
+              $lookup: {
+                  from: "users",
+                  localField: "UserEmail", // Adjust field to match schema
+                  foreignField: "email",
+                  as: "user_details"
+              }
+          },
+          // Flatten the structure by merging user details into the root object
+          {
+              $replaceRoot: {
+                  newRoot: {
+                      $mergeObjects: [
+                          { $arrayElemAt: ["$user_details", 0] },
+                          "$$ROOT"
+                      ]
+                  }
+              }
+          },
+          // Select and rename fields for the output
+          {
+            $project: {
+                date: 1,
+                name: 1,
+                inputId: 1,
+                UserEmail: 1,
+                accountNameBranchManning: 1,
+                period: 1,
+                month: 1,
+                week: 1,
+                skuDescription: 1,
+                skuCode: 1,
+                status: 1,
+                beginningSA: 1,
+                beginningWA: 1,
+                beginning: 1,
+                delivery: 1,
+                endingSA: 1,
+                endingWA: 1,
+                ending: 1,
+                expiryFields: {
+                    $map: {
+                        input: "$expiryFields",
+                        as: "expiry",
+                        in: {
+                          expiryMonth: "$$expiry.expiryMonth",
+                          expiryPcs: "$$expiry.expiryPcs" // Example keys
+                        }
+                    }
+                },
+                offtake: 1,
+                inventoryDaysLevel: { $round: ["$inventoryDaysLevel", 2] }, // Round to 2 decimals
+                noOfDaysOOS: 1,
+                remarksOOS: 1,
+                "user_first_name": "$first_name",
+                "user_last_name": "$last_name",
+                _id: 0
+            }
+        },
+        
+          // Sort the output by specific fields
+          {
+              $sort: {
+                  date: 1, // Sort by date in ascending order
+                  "user_first_name": 1
+              }
+          }
+      ]);
+
+      return res.send({ status: 200, data });
+  } catch (error) {
+      return res.status(500).send({ error: error.message });
+  }
+});
+
+app.post("/export-RTV-data", async (req, res) => {
+  const { start, end } = req.body;
+
+  try {
+      const data = await mongoose.model("NewReturnToVendor").aggregate([
+          // Match documents within the specified date range
+          {
+              $match: {
+                  $expr: {
+                      $and: [
+                          { $gte: [{ $toDate: "$date" }, new Date(start)] },
+                          { $lt: [{ $toDate: "$date" }, new Date(end)] }
+                      ]
+                  }
+              }
+          },
+          // Optionally join with another collection if needed
+          {
+              $lookup: {
+                  from: "users",
+                  localField: "UserEmail", // Adjust field to match schema
+                  foreignField: "email",
+                  as: "user_details"
+              }
+          },
+          // Flatten the structure by merging user details into the root object
+          {
+              $replaceRoot: {
+                  newRoot: {
+                      $mergeObjects: [
+                          { $arrayElemAt: ["$user_details", 0] },
+                          "$$ROOT"
+                      ]
+                  }
+              }
+          },
+          // Select and rename fields for the output
+          {
+            $project: {
+                date: 1,
+                merchandiserName: 1,
+                inputId: 1,
+                UserEmail: 1,
+                outlet: 1,
+                item: 1,
+                expiryDate: 1,
+                amount: 1,
+                quantity: 1,
+                total: 1,
+                remarks: 1,
+                reason: 1,
+            }
+        },
+        
+          // Sort the output by specific fields
+          {
+              $sort: {
+                  date: 1, // Sort by date in ascending order
+                  "user_first_name": 1
+              }
+          }
+      ]);
+
+      return res.send({ status: 200, data });
+  } catch (error) {
+      return res.status(500).send({ error: error.message });
+  }
+});
+
+app.post("/export-attendance-data", async (req, res) => {
+  const { start, end } = req.body;
+
+  try {
+    console.log("Received request for export data with dates:", start, end);
+
+    const data = await mongoose.model("NewAttendance").aggregate([
+      // Match documents within the specified date range
+      {
+        $match: {
+          date: { 
+            $gte: new Date(start),
+            $lt: new Date(end)
+          }
+        }
+      },
+      // Optionally join with another collection if needed
+      {
+        $lookup: {
+          from: "users",
+          localField: "userEmail", 
+          foreignField: "email",
+          as: "user_details"
+        }
+      },
+      // Flatten the structure by merging user details into the root object
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              { $arrayElemAt: ["$user_details", 0] },
+              "$$ROOT"
+            ]
+          }
+        }
+      },
+      // Select and rename fields for the output
+      {
+        $project: {
+          date: 1,
+          userEmail: 1,
+          accountNameBranchManning: 1,
+          timeLogs: {
+            $map: {
+              input: "$timeLogs",
+              as: "log",
+              in: {
+                timeIn: "$$log.timeIn",
+                timeOut: "$$log.timeOut",
+                timeInLocation: "$$log.timeInLocation",
+                timeOutLocation: "$$log.timeOutLocation"
+              }
+            }
+          },
+          "user_first_name": "$first_name",
+          "user_last_name": "$last_name",
+          _id: 0
+        }
+      },
+      // Sort the output by specific fields
+      {
+        $sort: {
+          date: 1,
+          "user_first_name": 1
+        }
+      }
+    ]);
+
+    console.log("Aggregated data:", JSON.stringify(data));
+
+    return res.send({ status: 200, data });
+  } catch (error) {
+    console.error("Error exporting attendance data:", error);
+    return res.status(500).send({ error: error.message });
+  }
+});
+
 
 app.post("/filter-date", async (req, res) => {
 
   const {selectDate} = req.body;
   console.log("test" , selectDate)
   try {
-    const parcelPerUser = await ParcelData.find( {date:{$eq:selectDate}} );
+    const parcelPerUser = await InventoryData.find({
+      date: { $eq: new Date(selectDate).toISOString().split("T")[0] },
+    });
 
     console.log("Found parcels:", parcelPerUser);
     return res.status(200).json({ status: 200, data: parcelPerUser });
