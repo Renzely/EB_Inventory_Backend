@@ -384,48 +384,52 @@ app.post('/get-attendance', async (req, res) => {
 
 
 
-app.post("/register-user-admin", async(req, res) => {
-  const {firstName, middleName, lastName, emailAddress, contactNum, password, roleAccount,accountNameBranchManning} = req.body;
-  const encryptedPassword = await bcrypt.hash(password, 8);
-
-  const oldUser = await User.findOne({emailAddress:emailAddress});
-
-  const dateNow =  new Date();
-  let type; 
-  
-  if (oldUser) return res.send({data:"User already exist!"});
-
-  if (roleAccount === 'Coordinator'){
-     type = 2 
-  } else {
-     type = 3
-  }
+app.post("/register-user-admin", async (req, res) => {
+  const { firstName, middleName, lastName, emailAddress, contactNum, password, roleAccount, accountNameBranchManning } = req.body;
 
   try {
-      await User.create({
-          roleAccount,
-          accountNameBranchManning,
-          firstName,
-          middleName,
-          lastName,
-          emailAddress,
-          contactNum,
-          password: encryptedPassword,
-          isActivate: false,
-          j_date : dateNow,
-          type : type
-          
-      });
-      await Coordinator.create({
-        coorEmailAdd: emailAddress,
-        MerchandiserEmail: []
+    console.log("Hashing password...");
+    const encryptedPassword = await bcrypt.hash(password, 8);
+
+    console.log("Checking if user exists...");
+    const oldUser = await User.findOne({ emailAddress });
+
+    if (oldUser) {
+      console.log("User already exists.");
+      return res.status(400).json({ status: 400, message: "User already exists!" });
+    }
+
+    const dateNow = new Date();
+    const type = roleAccount === "Coordinator" ? 2 : 3;
+
+    console.log("Creating user in User collection...");
+    await User.create({
+      roleAccount,
+      accountNameBranchManning,
+      firstName,
+      middleName,
+      lastName,
+      emailAddress,
+      contactNum,
+      password: encryptedPassword,
+      isActivate: false,
+      j_date: dateNow,
+      type: type,
     });
-      res.send({status: 200, data:"User Created"})
+
+    // console.log("Creating Coordinator record...");
+    // await Coordinator.create({
+    //   coorEmailAdd: emailAddress,
+    //   MerchandiserEmail: [],
+    // });
+
+    console.log("User created successfully.");
+    res.status(200).json({ status: 200, message: "User created successfully!" });
   } catch (error) {
-      res.send({ status: "error", data: error});
+    console.error("Error creating user:", error);
+    res.status(500).json({ status: 500, message: "Internal server error", error: error.message });
   }
 });
-
 
 
 
@@ -490,7 +494,8 @@ app.post("/login-admin", async (req, res) => {
           middleName: oldUser.middleName,
           lastName: oldUser.lastName,
           contactNum: oldUser.contactNum,
-          roleAccount: oldUser.roleAccount // Include roleAccount in the response
+          roleAccount: oldUser.roleAccount, // Include roleAccount in the response
+          accountNameBranchManning: oldUser.accountNameBranchManning
         }
       });
     } else {
