@@ -19,6 +19,7 @@ const AttendanceSchema = new mongoose.Schema(
           latitude: Number,
           longitude: Number,
         },
+        selfieUrl: { type: String, default: '' }, // Add selfieUrl field
       },
     ],
   },

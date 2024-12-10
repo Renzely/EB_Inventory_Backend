@@ -11,6 +11,7 @@ require("./InventoryData");
 require("./RtvData");
 require("./HistoryAttendance");
 require("./status")
+const AWS = require('aws-sdk');
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -74,6 +75,34 @@ app.post("/get-users-by-branch", async (req, res) => {
   }
 });
 
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
+// Endpoint to generate pre-signed URL
+app.post('/save-attendance-images', (req, res) => {
+  const { fileName } = req.body;
+
+  // Set S3 parameters
+  const params = {
+    Bucket: 'attendance-images-engkanto',
+    Key: fileName,
+    Expires: 60, // URL expiration time (in seconds)
+    ContentType: 'image/jpeg', // Or the file type you're uploading
+  };
+
+  // Generate the pre-signed URL
+  s3.getSignedUrl('putObject', params, (err, url) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to generate pre-signed URL' });
+    }
+
+    // Send the URL to the client
+    res.json({ url });
+  });
+});
 
 app.post("/get-all-attendance", async (req, res) => {
 
@@ -131,6 +160,7 @@ app.post('/get-attendance', async (req, res) => {
           timeOutLocation: log.timeOutLocation || 'No location provided',
           timeInCoordinates: log.time_in_coordinates || { latitude: 0, longitude: 0 },
           timeOutCoordinates: log.time_out_coordinates || { latitude: 0, longitude: 0 },
+          selfieUrl: log.selfieUrl || '', // Add selfieUrl here
         };
       })
     }));
